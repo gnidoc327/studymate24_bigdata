@@ -1,0 +1,73 @@
+version: '3.7'
+
+services:
+  hadoop-namenode:
+    image: bde2020/hadoop-namenode:2.0.0-hadoop2.7.4-java8
+    container_name: hadoop-namenode
+    volumes:
+      - namenode:/hadoop/dfs/name
+    environment:
+      - CLUSTER_NAME=test
+    env_file:
+      - ./hadoop.env
+    ports:
+      - "9870:9870"
+
+  hadoop-datanode:
+    image: bde2020/hadoop-datanode:2.0.0-hadoop2.7.4-java8
+    container_name: hadoop-datanode
+    volumes:
+      - datanode:/hadoop/dfs/data
+    environment:
+      - CLUSTER_NAME=test
+    env_file:
+      - ./hadoop.env
+    depends_on:
+      - hadoop-namenode
+    ports:
+      - "9864:9864"
+
+  hive-metastore-postgresql:
+    image: postgres:13
+    container_name: hive-metastore-postgresql
+    environment:
+      POSTGRES_DB: metastore
+      POSTGRES_USER: hive
+      POSTGRES_PASSWORD: hive
+    ports:
+      - "5432:5432"
+    volumes:
+      - metastore-postgresql-data:/var/lib/postgresql/data
+
+  hive-metastore:
+    image: bde2020/hive:2.3.2-postgresql-metastore
+    container_name: hive-metastore
+    environment:
+      HIVE_METASTORE_DB_TYPE: postgres
+      HIVE_JDBC_URL: jdbc:postgresql://hive-metastore-postgresql:5432/metastore
+      HIVE_DB: metastore
+      HIVE_USER: hive
+      HIVE_PASSWORD: hive
+    depends_on:
+      - hive-metastore-postgresql
+      - hadoop-namenode
+      - hadoop-datanode
+    ports:
+      - "9083:9083"
+
+  hive-server:
+    image: bde2020/hive:2.3.2-postgresql-metastore
+    container_name: hive-server
+    environment:
+      HIVE_METASTORE_URI: thrift://hive-metastore:9083
+      SERVICE_PRECONDITION: hive-metastore:9083
+    depends_on:
+      - hive-metastore
+    ports:
+      - "10000:10000"
+      - "10002:10002"
+
+volumes:
+  namenode:
+  datanode:
+  metastore-postgresql-data:
